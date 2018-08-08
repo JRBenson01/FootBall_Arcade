@@ -22,11 +22,37 @@ dull_magenta = (125, 0, 125)
 raspberry = (255, 0, 125)
 
 
+
 def rad(degrees):
     return ((degrees * math.pi)/180)
 
 def deg(radians):
     return ((180 * radians)/math.pi)
+
+def angleRound(Val):
+    if Val < 0:
+        Val = 360 + Val
+    if Val > 0 and Val <= 22.5:
+        angle = 0
+    elif Val > 22.5 and Val < 67.5:
+        angle = 45
+    elif Val >= 67.5 and Val <= 112.5:
+        angle = 90
+    elif Val > 112.5 and Val < 157.5:
+        angle = 135
+    elif Val >= 157.5 and Val <= 202.5:
+        angle = 180
+    elif Val > 202.5 and Val < 247.5:
+        angle = 225
+    elif Val >= 247.5 and Val <= 292.5:
+        angle = 270
+    elif Val > 292.5 and Val < 337.5:
+        angle = 315
+    elif Val >= 337.5 and Val <= 360:
+        angle = 0
+    else:
+        angle = 0
+    return angle
 
 class game_Window(object):
     def __init__(self):
@@ -128,6 +154,26 @@ class game_Action(object):
         gameWindow.gameExit()
 """
 
+class game_Data(object):
+    def __init__(self):
+        start_pos = ((gameWindow.width - 100), (gameWindow.height/2))
+        self.use = True
+        self.playerPositions = []
+        for i in range(60):
+            self.playerPositions.append(start_pos)
+        
+    def ret_viewPos(self):
+        print (self.playerPositions[59])
+        return self.playerPositions[0]
+    
+    def set_truePos(self, gPos):
+        count = 59
+        temp = self.playerPositions[count]
+        while count > -1:
+            self.playerPositions[count] = self.playerPositions[count+1]
+            temp = self.playerPositions[count]
+#Position code still needs to be worked out
+
 class button(object):
     def __init__(self, text):
         self.text = text
@@ -185,7 +231,6 @@ class button(object):
         if self.box:
             pygame.draw.rect(gameWindow.display, self.normal_color, (disp_specs))
         gameWindow.display.blit(textSurface, textBox)
-
 
 class gamePiece(object):
     def __init__(self):
@@ -252,34 +297,6 @@ class gamePiece(object):
             self.sprite = pygame.transform.rotate(self.sprite, -90)
         self.prevAngle = self.angle
 
-    def move_up(self):
-        self.angle = 'v'
-        xPos = self.position[0]
-        yPos = self.position[1] - self.speed
-        self.position = (xPos, yPos)
-        self.orientUpdate()
-
-    def move_down(self):
-        self.angle = 'v'
-        xPos = self.position[0]
-        yPos = self.position[1] + self.speed
-        self.position = (xPos, yPos)
-        self.orientUpdate()
-
-    def move_left(self):
-        self.angle = 'h'
-        xPos = self.position[0] - self.speed
-        yPos = self.position[1]
-        self.position = (xPos, yPos)
-        self.orientUpdate()
-
-    def move_right(self):
-        self.angle = 'h'
-        xPos = self.position[0] + self.speed
-        yPos = self.position[1]
-        self.position = (xPos, yPos)
-        self.orientUpdate()
-
     def input(self, keys):
         move = True
         vert = 0
@@ -313,8 +330,22 @@ class gamePiece(object):
 
     def move(self):
         angle = rad(self.angle)
-        xPos = self.position[0] + ((self.speed)*math.cos(angle))
-        yPos = self.position[1] - ((self.speed)*math.sin(angle))
+        xPos = self.position[0]
+        yPos = self.position[1]
+        D_x = self.speed*math.cos(angle)
+        D_y = self.speed*math.sin(angle)
+        if xPos <= 50 and D_x < 0:
+            print("left border hit")
+        else:
+            xPos = self.position[0] + ((self.speed)*math.cos(angle))
+            
+        if yPos >= gameWindow.height-50 and D_y < 0:
+            print("lower border hit")
+        elif yPos <= 50 and D_y > 0:
+            print("upper border hit")
+        else:
+            yPos = self.position[1] - ((self.speed)*math.sin(angle))
+            
         self.position = (xPos, yPos)
         if self.angle % 90 == 0:
             self.sprite = pygame.transform.rotate(self.sprites[0], self.angle - 90)
@@ -326,8 +357,18 @@ class gamePiece(object):
         return self.triggered
 
     def chase(self, player):
-        D_xPos = self.position[0] - player.position[0]
-        D_yPos = self.position[1] - player.position[1] 
+        D_x = int(player.position[0] - self.position[0])
+        D_y = int(self.position[1] - player.position[1])
+        gameData.set_truePos((D_x, D_y))
+        D_x = gameData.ret_viewPos()[0]
+        D_y = gameData.ret_viewPos()[1]
+        if D_x == 0:
+            D_x = 1
+        self.angle = deg(math.atan(D_y/D_x))
+        if D_x < 0:
+            self.angle = self.angle + 180
+        #print("Change X:", D_x, " Change Y:", D_y, " Angle:", self.angle)
+        self.angle = angleRound(self.angle)
         self.move()
         
         
@@ -392,16 +433,6 @@ def mainLoop():
     keys = pygame.key.get_pressed()
     #print (player.position, collider.position)
     player.collision(collider)
-    """
-    if keys[K_w]:
-        player.move_up()
-    if keys[K_a]:
-        player.move_left()
-    if keys[K_s]:
-        player.move_down()
-    if keys[K_d]:
-        player.move_right()
-    """
     player.input(keys)
     collider.chase(player)
     if player.position[0] >= (gameWindow.width - 100):
@@ -454,6 +485,8 @@ gameWindow.set_caption("Hello World")
 gameWindow.set_background_color(green)
 #gameWindow.set_fullscreen()
 
+gameData = game_Data()
+
 player = gamePiece()
 player.set_pos(100, gameWindow.height/2)
 player.set_sprite("Helm_Blue.png")
@@ -464,6 +497,15 @@ collider = gamePiece()
 collider.set_pos((gameWindow.width - 100), (gameWindow.height/2))
 collider.set_sprite("Helm_Red.png")
 collider.set_sprite("Helm_Red_45.png")
+collider.set_speed(1.5)
+
+"""
+collider1 = gamePiece()
+collider1.set_pos((gameWindow.width - 100), (gameWindow.height/2)-200)
+collider1.set_sprite("Helm_Red.png")
+collider1.set_sprite("Helm_Red_45.png")
+collider1.set_speed(1.5)
+"""
 
 fps_display = button("FPS: ")
 fps_display.set_pos(50, 50)
@@ -487,6 +529,9 @@ subheading.set_pos(gameWindow.width/2, gameWindow.height/1.5)
 subheading.set_font_size(48)
 subheading.no_box()
 
-
+playerPositions = []
+playerPositions.append((0, 0))
+playerPositions.append(player.position)
+playerPositions.append(player.position)
 
 gameAction.gameLoop()
