@@ -12,6 +12,7 @@ import time
 import math
 pygame.init()
 
+Debugging = True
 
 class color(object):
     def __init__(self, name, color_code):
@@ -149,14 +150,14 @@ class game_Action(object):
         self.scenes = []
 
     def add_scene(self, scene):
-        """
-        print(len(self.scenes))
-        if int(len(self.scenes)) == 0:
-            self.curent_scene = scene.name
-            print(scene.name)
-            print("start scene set to:", self.current_scene)
-        """
         self.scenes.append(scene)
+        
+        if Debugging:
+            sceneNames = ""
+            print("New scene added:", scene.name)
+            for addedScene in self.scenes:
+                sceneNames = sceneNames + addedScene.name + " "
+            print("Complete List:", sceneNames)
 
     def change_scene(self, scene):
         self.current_scene = scene
@@ -196,7 +197,9 @@ class scene(object):
         self.sceneStay = True
 
     def set_background_color(self, color):
-        print(self.name, "scene background color set to:", color.name()) 
+        if Debugging:
+            print(self.name, "scene background color set to:", color.name())
+            
         self.background_color = color.get()
 
     def set_function(self, function):
@@ -215,11 +218,17 @@ class scene(object):
         if not found:
             self.pieces.append(pic)
             self.pieces.sort(key=ret_order)
+
+            if Debugging:
+                print("%s added to %s scene" % (pic.name, self.name))
+            
             for base in pic.__class__.__bases__:
                 if base.__name__ == "gamePiece":
                     if pic.get_collidable():
-                        print(pic.name, '\t', "set to collidable in ", self.name, '\t', "scene.") 
                         self.collidables.append(pic)
+                        
+                        if Debugging:
+                            print(pic.name, '\t', "set to collidable in ", self.name, '\t', "scene.") 
 
     def add_pieces(self, pics):
         for pic in pics:
@@ -265,6 +274,8 @@ class scene(object):
 
 class physObject(object):
     def __init__(self):
+        #Universal Properties
+        self.name = self.__class__.__name__ + " object"
         
         #Physical Properties
         self.length = 1
@@ -288,11 +299,12 @@ class physObject(object):
                         "size"      : self.set_size,
                         "sprite"    : self.add_sprite,
                         "sprites"   : self.set_sprites,
-                        "order"     : self.set_order
+                        "order"     : self.set_order,
+                        "name"      : self.set_name
                         }
         
-    def set_pos(self, x, y):
-        self.position = (x, y)
+    def set_pos(self, pos):
+        self.position = pos
 
     def set_length(self, length):
         self.length = length
@@ -316,8 +328,13 @@ class physObject(object):
     def set_order(self, order):
         self.order = order
 
+    def set_name(self, name):
+        self.name = name
+
     def set_stats(self, stats):
-        #print("==============================")
+        if Debugging:
+            print("====+ Setting stats for %s +====" % self.name)
+            
         for stat in stats:
             for element in self.stat_dic:
                 if element == stat:
@@ -326,7 +343,10 @@ class physObject(object):
                     #else:
                     #    print(self.text, "button", element, "set to", stats[stat])
                     self.stat_dic[element](stats[stat])
-        #print("==============================")
+                    if Debugging:
+                        print("%s set to: %s" % (element, str(stats[stat])))
+        if Debugging:
+            print("====+ Done with %s +====" % self.name)
 
 class gamePiece(physObject):
     def __init__(self):
@@ -339,10 +359,11 @@ class gamePiece(physObject):
         self.speed = 1
 
         #Dictionary for setting functions
-        self.stat_dic = {
+        stat_dic =      {
                         "angle"     : self.set_angle,
                         "speed"     : self.set_speed
                         }
+        self.stat_dic = {**self.stat_dic, **stat_dic}
 
     def set_angle(self, angle):
         self.angle = angle
@@ -371,7 +392,7 @@ class button(physObject):
         self.use_color = dull_magenta.get()
 
         #Dictionary for setting functions
-        self.stat_dic = {
+        stat_dic =      {
                         "interactable"  : self.set_interactable,
                         "box"           : self.set_box,
                         "text"          : self.set_text,
@@ -381,6 +402,7 @@ class button(physObject):
                         "trigger_color" : self.set_trigger_color,
                         "click_color"   : self.set_click_color
                         }
+        self.stat_dic = {**self.stat_dic, **stat_dic}
         
     def set_interactable(self, value):
         self.interactable = value
@@ -390,6 +412,11 @@ class button(physObject):
 
     def set_text(self, text):
         self.text = text
+        if self.name == self.__class__.__name__ + " object":
+            newName = text + " button"
+            if Debugging:
+                print("%s name changed to: %s" % (self.name, newName))
+            self.name = newName
 
     def set_font(self):
         self.font = pygame.font.Font(self.font_type, self.font_size)
@@ -412,6 +439,11 @@ class button(physObject):
         self.click_color = color.get()
 
     def display(self):
+        xPos = self.position[0]
+        yPos = self.position[1]
+
+        #print(self.position)
+        
         mouse = pygame.mouse.get_pos()
         mouse_x = mouse[0]
         mouse_y = mouse[1]
@@ -419,10 +451,10 @@ class button(physObject):
         
         #Positions relative to upper left corner. 
         #                       X Position                  Y Position              dimensions of button
-        disp_specs = ((self.xPos - (self.width/2)), (self.yPos - (self.height/2)), self.width, self.height)
+        disp_specs = ((xPos - (self.length/2)), (yPos - (self.height/2)), self.length, self.height)
         if self.box and self.interact:
-            if mouse_x > (self.xPos - self.width/2) and mouse_x < (self.xPos + self.width/2):
-                if mouse_y > (self.yPos - self.height/2) and mouse_y < (self.yPos + self.height/2):
+            if mouse_x > (xPos - length/2) and mouse_x < (xPos + length/2):
+                if mouse_y > (yPos - self.height/2) and mouse_y < (yPos + self.height/2):
                     self.use_color = self.trigger_color
                     self.triggered = True
                 else:
@@ -447,13 +479,15 @@ class button(physObject):
         #Surface that text will be displayed on
         textSurface = self.font.render(self.text, True, black.get())
 
+        """
         #Code to rotate text on the button
         if self.angle != 0:
             textSurface = pygame.transform.rotate(textSurface, self.angle)
+        """
 
         #Makes a rectangle based on the surface of the text amd then centers to text surface
         textBox = textSurface.get_rect()
-        textBox.center = (self.xPos, self.yPos)
+        textBox.center = self.position
 
         #Draws box behind text if user indicates if this not simply a text object
         if self.box:
@@ -477,3 +511,4 @@ fps_display_stats = {
                     "pos"   : (70, 20),
                     "text"  : "FPS: "
                     }
+fps_display.set_stats(fps_display_stats)
